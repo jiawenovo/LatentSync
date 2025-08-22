@@ -4,7 +4,7 @@ name: Create and publish a Docker image
 # Configures this workflow to run every time a change is pushed to the branch called `release`.
 on:
   push:
-    branches: ['bullmq-node']
+    branches: ['docker']
 
 # Defines two custom environment variables for the workflow. These are used for the Container registry domain, and a name for the Docker image that this workflow builds.
 env:
@@ -49,8 +49,29 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-      
+          # 可选: 打印更详细的构建日志
+          provenance: false
+          no-cache: true
       # This step generates an artifact attestation for the image, which is an unforgeable statement about where and how it was built. It increases supply chain security for people who consume the image. For more information, see [Using artifact attestations to establish provenance for builds](/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds).
+
+      # ✅ 显示每一层的大小
+      - name: Show image layer sizes
+        run: docker history ${{ steps.meta.outputs.tags }} --human --no-trunc
+
+      # ✅ 显示整个镜像的大小
+      - name: Show total image size
+        run: docker images ${{ steps.meta.outputs.tags }}
+
+      # ✅ 安装 dive 用于镜像优化分析
+      - name: Install dive
+        run: |
+          curl -sSL https://github.com/wagoodman/dive/releases/download/v0.12.0/dive_0.12.0_linux_amd64.deb -o dive.deb
+          sudo dpkg -i dive.deb
+
+      # ✅ 使用 dive 分析镜像效率、浪费空间等
+      - name: Analyze image layers with dive
+        run: dive ${{ steps.meta.outputs.tags }} --ci
+
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2
         with:
